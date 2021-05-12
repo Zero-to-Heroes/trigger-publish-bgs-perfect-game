@@ -1,0 +1,87 @@
+# https://github.com/awslabs/serverless-application-model/blob/develop/versions/2016-10-31.md
+# Indentation needs to be set with spaces, because YAML...
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Build specific stats linked to reviews
+
+Resources:
+    PublishBgsPerfectGameQueue:
+        Type: AWS::SQS::Queue
+        Properties:
+            QueueName: publish-perfect-game-queue
+            VisibilityTimeout: 601
+    PublishBgsPerfectGameSqsQueuePolicy:
+        Type: AWS::SQS::QueuePolicy
+        Properties:
+            PolicyDocument:
+                Version: '2012-10-17'
+                Id: PublishBgsPerfectGameQueuePolicy
+                Statement:
+                    - Sid: Allow-SNS-SendMessage
+                      Effect: Allow
+                      Principal:
+                          AWS: '*'
+                      Action:
+                          - sqs:SendMessage
+                      Resource: !GetAtt PublishBgsPerfectGameQueue.Arn
+                      Condition:
+                          ArnEquals:
+                              aws:SourceArn: arn:aws:sns:us-west-2:478062583808:bg-perfect-game
+            Queues:
+                - !Ref PublishBgsPerfectGameQueue
+    SnsSubscription:
+        Type: AWS::SNS::Subscription
+        Properties:
+            Protocol: SQS
+            Endpoint: !GetAtt PublishBgsPerfectGameQueue.Arn
+            TopicArn: arn:aws:sns:us-west-2:478062583808:bg-perfect-game
+
+    ProcessPublishBgsPerfectGameFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: process-publish-bgs-perfect-game.default
+            Runtime: nodejs10.x
+            CodeUri: ./dist/process-publish-bgs-perfect-game
+            MemorySize: 384
+            ReservedConcurrentExecutions: 1
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - SecretsManagerReadWrite
+                - AmazonSNSFullAccess
+                - AmazonSESFullAccess
+                - AmazonSQSFullAccess
+                - AmazonS3FullAccess
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: publish-bgs-perfect-game
+            Timeout: 60
+            Events:
+                SQSEvent:
+                    Type: SQS
+                    Properties:
+                        Queue: !GetAtt PublishBgsPerfectGameQueue.Arn
+                        # Keep it to 1 to limit the risk of timeouts
+                        BatchSize: 1
+    BuildBgsPerfectGamesFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            Handler: build-bgs-perfect-games.default
+            Runtime: nodejs10.x
+            Timeout: 120
+            CodeUri: ./dist/build-bgs-perfect-games
+            MemorySize: 256
+            Policies:
+                - AWSLambdaVPCAccessExecutionRole
+                - AmazonSESFullAccess
+                - SecretsManagerReadWrite
+                - AmazonSNSReadOnlyAccess
+                - AmazonS3FullAccess
+                # - arn:aws:iam::478062583808:policy/CloudWatchPolicyForLambda # See https://stackoverflow.com/questions/51166504/disable-cloudwatch-to-monitor-logs-for-lambda-function
+            Tags:
+                LambdaName: cron-build-bgs-perfect-games
+            Events:
+                # Populate the info on the last hour
+                LastPeriodTrigger:
+                    Type: Schedule
+                    Properties:
+                        Schedule: cron(0 * * * ? *) # Triggers every hour
