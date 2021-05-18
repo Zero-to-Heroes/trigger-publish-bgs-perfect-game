@@ -16,25 +16,26 @@ export class StatsBuilder {
 	public async buildStats(messages: readonly ReviewMessage[], dryRun = false) {
 		await cards.initializeCardsDb();
 		const mysql = await getConnection();
-		await Promise.all(messages.map(msg => this.buildStat(msg, mysql)));
+		await Promise.all(messages.map(msg => this.buildStat(msg.reviewId, mysql)));
 		await mysql.end();
 	}
 
-	private async buildStat(message: ReviewMessage, mysql: ServerlessMysql) {
-		// console.log('processing', message);
-		if (!message.playerRank?.length) {
+	private async buildStat(reviewId: string, mysql: ServerlessMysql) {
+		const review = await loadReview(reviewId, mysql);
+		console.log('processing', review);
+		if (!review.playerRank?.length || parseInt(review.playerRank) < 2000) {
 			return;
 		}
 
-		const replayString = await this.loadReplayString(message.replayKey);
+		const replayString = await this.loadReplayString(review.replayKey);
 		// console.log('hophop', message.replayKey, replayString?.length, replayString?.substring(0, 100));
 		if (!replayString || replayString.length === 0) {
 			return null;
 		}
 
 		// Now we anonymize the replay string
-		const playerCardId = message.playerCardId;
-		const anonimizedReplayString = anonymize(replayString, message);
+		const playerCardId = review.playerCardId;
+		const anonimizedReplayString = anonymize(replayString, review);
 		const newReviewId = uuid();
 
 		// Save the new replay on S3
@@ -66,16 +67,16 @@ export class StatsBuilder {
 			(
 				${nullIfEmpty(newReviewId)},
 				${nullIfEmpty(creationDate)},
-				${nullIfEmpty(message.reviewId)},
-				${nullIfEmpty(message.creationDate)},
-				${nullIfEmpty(message.buildNumber)},
+				${nullIfEmpty(review.reviewId)},
+				${nullIfEmpty(review.creationDate)},
+				${nullIfEmpty(review.buildNumber)},
 				${nullIfEmpty(playerCardId)},
-				${nullIfEmpty(message.playerRank)},
+				${nullIfEmpty(review.playerRank)},
 				${nullIfEmpty(replayKey)},
-				${nullIfEmpty(message.bgsAvailableTribes)},
-				${nullIfEmpty(message.bgsBannedTribes)},
-				${nullIfEmpty(escape(message.totalDurationSeconds))},
-				${nullIfEmpty(escape(message.totalDurationTurns))}
+				${nullIfEmpty(review.bgsAvailableTribes)},
+				${nullIfEmpty(review.bgsBannedTribes)},
+				${nullIfEmpty(escape(review.totalDurationSeconds))},
+				${nullIfEmpty(escape(review.totalDurationTurns))}
 			)
 		`;
 		await mysql.query(query);
@@ -110,4 +111,30 @@ const toCreationDate = (today: Date): string => {
 		.toISOString()
 		.slice(0, 19)
 		.replace('T', ' ')}.${today.getMilliseconds()}`;
+};
+
+const loadReview = async (reviewId: string, mysql: ServerlessMysql) => {
+	return new Promise<any>(resolve => {
+		loadReviewInternal(reviewId, mysql, review => resolve(review));
+	});
+};
+
+const loadReviewInternal = async (reviewId: string, mysql: ServerlessMysql, callback, retriesLeft = 15) => {
+	if (retriesLeft <= 0) {
+		console.error('Could not load review', reviewId);
+		callback(null);
+		return;
+	}
+	const dbResults: any[] = await mysql.query(
+		`
+		SELECT * FROM replay_summary 
+		WHERE reviewId = '${reviewId}'
+	`,
+	);
+	const review = dbResults && dbResults.length > 0 ? dbResults[0] : null;
+	if (!review?.bgsAvailableTribes) {
+		setTimeout(() => loadReviewInternal(reviewId, mysql, callback, retriesLeft - 1), 1000);
+		return;
+	}
+	callback(review);
 };

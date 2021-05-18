@@ -25,6 +25,10 @@ export default async (event): Promise<any> => {
 	const results = dbResults.map(result => ({
 		...result,
 		creationTimestamp: Date.parse(result.creationDate),
+		bgsAvailableTribes: result.bgsAvailableTribes
+			? result.bgsAvailableTribes.split(',').map(tribe => parseInt(tribe))
+			: [],
+		bgsBannedTribes: result.bgsBannedTribes ? result.bgsBannedTribes.split(',').map(tribe => parseInt(tribe)) : [],
 	}));
 	const stringResults = JSON.stringify(results);
 	const gzippedResults = gzipSync(stringResults);
