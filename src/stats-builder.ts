@@ -115,25 +115,31 @@ const toCreationDate = (today: Date): string => {
 
 const loadReview = async (reviewId: string, mysql: ServerlessMysql) => {
 	return new Promise<any>(resolve => {
-		loadReviewInternal(reviewId, mysql, review => resolve(review));
+		loadReviewInternal(reviewId, mysql, null, review => resolve(review));
 	});
 };
 
-const loadReviewInternal = async (reviewId: string, mysql: ServerlessMysql, callback, retriesLeft = 15) => {
+const loadReviewInternal = async (
+	reviewId: string,
+	mysql: ServerlessMysql,
+	callback,
+	previousReview,
+	retriesLeft = 15,
+) => {
 	if (retriesLeft <= 0) {
 		console.error('Could not load review', reviewId);
-		callback(null);
+		callback(previousReview);
 		return;
 	}
-	const dbResults: any[] = await mysql.query(
-		`
+	const query = `
 		SELECT * FROM replay_summary 
 		WHERE reviewId = '${reviewId}'
-	`,
-	);
+	`;
+	const dbResults: any[] = await mysql.query(query);
 	const review = dbResults && dbResults.length > 0 ? dbResults[0] : null;
 	if (!review?.bgsAvailableTribes) {
-		setTimeout(() => loadReviewInternal(reviewId, mysql, callback, retriesLeft - 1), 1000);
+		console.warn('Could not load full review info', review);
+		setTimeout(() => loadReviewInternal(reviewId, mysql, callback, review, retriesLeft - 1), 1000);
 		return;
 	}
 	callback(review);
