@@ -1,13 +1,15 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
+import { inflate, deflate } from 'pako';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
 import { getConnection } from './db/rds';
+import { getConnection as getConnectionBgs } from './db/rds-bgs';
 import { S3 } from './db/s3';
 import { uuid } from './db/utils';
-// import { fetch } from 'node-fetch';
-// import { Rds } from './db/rds';
+import { BgsBoard, BgsPostMatchStats } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { ReviewMessage } from './review-message';
+import { stat } from 'fs';
 
 const s3 = new S3();
 const cards = new AllCardsService();
@@ -16,11 +18,13 @@ export class StatsBuilder {
 	public async buildStats(messages: readonly ReviewMessage[], dryRun = false) {
 		await cards.initializeCardsDb();
 		const mysql = await getConnection();
-		await Promise.all(messages.map(msg => this.buildStat(msg.reviewId, mysql)));
+		const mysqlBgs = await getConnectionBgs();
+		await Promise.all(messages.map(msg => this.buildStat(msg.reviewId, mysql, mysqlBgs)));
 		await mysql.end();
+		await mysqlBgs.end();
 	}
 
-	private async buildStat(reviewId: string, mysql: ServerlessMysql) {
+	private async buildStat(reviewId: string, mysql: ServerlessMysql, mysqlBgs: ServerlessMysql) {
 		const review = await loadReview(reviewId, mysql);
 		console.log('processing', review);
 		if (!review.playerRank?.length || parseInt(review.playerRank) < 2000) {
@@ -61,7 +65,8 @@ export class StatsBuilder {
 				bgsAvailableTribes,
 				bgsBannedTribes,
 				gameDurationSeconds,
-				gameDurationTurns
+				gameDurationTurns,
+				finalComp
 			)
 			VALUES
 			(
@@ -76,7 +81,8 @@ export class StatsBuilder {
 				${nullIfEmpty(review.bgsAvailableTribes)},
 				${nullIfEmpty(review.bgsBannedTribes)},
 				${nullIfEmpty(escape(review.totalDurationSeconds))},
-				${nullIfEmpty(escape(review.totalDurationTurns))}
+				${nullIfEmpty(escape(review.totalDurationTurns))},
+				${nullIfEmpty(review.finalComp)}
 			)
 		`;
 		await mysql.query(query);
@@ -115,7 +121,7 @@ const toCreationDate = (today: Date): string => {
 
 const loadReview = async (reviewId: string, mysql: ServerlessMysql) => {
 	return new Promise<any>(resolve => {
-		loadReviewInternal(reviewId, mysql, null, review => resolve(review));
+		loadReviewInternal(reviewId, mysql, review => resolve(review), null);
 	});
 };
 
@@ -133,7 +139,7 @@ const loadReviewInternal = async (
 	}
 	const query = `
 		SELECT * FROM replay_summary 
-		WHERE reviewId = '${reviewId}'
+		WHERE reviewId = ${SqlString.escape(reviewId)}
 	`;
 	const dbResults: any[] = await mysql.query(query);
 	const review = dbResults && dbResults.length > 0 ? dbResults[0] : null;

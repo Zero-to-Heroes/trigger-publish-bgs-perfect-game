@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
+import { inflate, deflate } from 'pako';
+import { BgsBoard } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { gzipSync } from 'zlib';
 import { getConnection } from './db/rds';
 import { S3 } from './db/s3';
@@ -29,6 +31,9 @@ export default async (event): Promise<any> => {
 			? result.bgsAvailableTribes.split(',').map(tribe => parseInt(tribe))
 			: [],
 		bgsBannedTribes: result.bgsBannedTribes ? result.bgsBannedTribes.split(',').map(tribe => parseInt(tribe)) : [],
+		postMatchStats: {
+			boardHistory: result.finalComp ? [parseStats(result.finalComp)] : [],
+		},
 	}));
 	const stringResults = JSON.stringify(results);
 	const gzippedResults = gzipSync(stringResults);
@@ -43,4 +48,10 @@ export default async (event): Promise<any> => {
 	await mysql.end();
 
 	return { statusCode: 200, body: null };
+};
+
+const parseStats = (inputStats: string): BgsBoard => {
+	const fromBase64 = Buffer.from(inputStats, 'base64').toString();
+	const inflated = inflate(fromBase64, { to: 'string' });
+	return JSON.parse(inflated);
 };
