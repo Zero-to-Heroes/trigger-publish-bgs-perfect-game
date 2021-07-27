@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import { inflate, deflate } from 'pako';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
@@ -7,9 +6,7 @@ import { getConnection } from './db/rds';
 import { getConnection as getConnectionBgs } from './db/rds-bgs';
 import { S3 } from './db/s3';
 import { uuid } from './db/utils';
-import { BgsBoard, BgsPostMatchStats } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { ReviewMessage } from './review-message';
-import { stat } from 'fs';
 
 const s3 = new S3();
 const cards = new AllCardsService();
@@ -133,7 +130,7 @@ const loadReviewInternal = async (
 	retriesLeft = 15,
 ) => {
 	if (retriesLeft <= 0) {
-		console.error('Could not load review', reviewId);
+		console.error('Could not load reviews', reviewId);
 		callback(previousReview);
 		return;
 	}
