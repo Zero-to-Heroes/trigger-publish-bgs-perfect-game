@@ -20,6 +20,7 @@ export default async (event): Promise<any> => {
 	// so that we have 10 for each rank segment?
 	const query = `
 		SELECT * from bgs_perfect_game
+		WHERE playerRank > 4000
 		ORDER BY id desc
 		LIMIT 1000;
 	`;

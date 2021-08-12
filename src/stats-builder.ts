@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
+import { parseBattlegroundsGame } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
@@ -7,6 +8,7 @@ import { getConnection as getConnectionBgs } from './db/rds-bgs';
 import { S3 } from './db/s3';
 import { uuid } from './db/utils';
 import { ReviewMessage } from './review-message';
+import { validateReplay } from './validator';
 
 const s3 = new S3();
 const cards = new AllCardsService();
@@ -24,14 +26,20 @@ export class StatsBuilder {
 	private async buildStat(reviewId: string, mysql: ServerlessMysql, mysqlBgs: ServerlessMysql) {
 		const review = await loadReview(reviewId, mysql);
 		console.log('processing', review);
-		if (!review.playerRank?.length || parseInt(review.playerRank) < 2000) {
+		if (!review.playerRank?.length || parseInt(review.playerRank) <= 4000) {
 			return;
 		}
 
 		const replayString = await this.loadReplayString(review.replayKey);
 		// console.log('hophop', message.replayKey, replayString?.length, replayString?.substring(0, 100));
-		if (!replayString || replayString.length === 0) {
-			return null;
+		if (!replayString?.length) {
+			return;
+		}
+
+		const isValid = validateReplay(replayString);
+		if (!isValid) {
+			console.log('invalid replay', reviewId);
+			return;
 		}
 
 		// Now we anonymize the replay string
