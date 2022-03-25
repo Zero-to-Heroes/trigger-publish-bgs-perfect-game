@@ -40,9 +40,9 @@ Resources:
         Type: AWS::Serverless::Function
         Properties:
             Handler: process-publish-bgs-perfect-game.default
-            Runtime: nodejs10.x
+            Runtime: nodejs12.x
             CodeUri: ./dist/process-publish-bgs-perfect-game
-            MemorySize: 384
+            MemorySize: 450
             ReservedConcurrentExecutions: 1
             Policies:
                 - AWSLambdaVPCAccessExecutionRole
@@ -66,7 +66,7 @@ Resources:
         Type: AWS::Serverless::Function
         Properties:
             Handler: build-bgs-perfect-games.default
-            Runtime: nodejs10.x
+            Runtime: nodejs12.x
             Timeout: 120
             CodeUri: ./dist/build-bgs-perfect-games
             MemorySize: 256
