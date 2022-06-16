@@ -4,7 +4,6 @@ import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
 import { getConnection } from './db/rds';
-import { getConnection as getConnectionBgs } from './db/rds-bgs';
 import { S3 } from './db/s3';
 import { uuid } from './db/utils';
 import { ReviewMessage } from './review-message';
@@ -17,13 +16,11 @@ export class StatsBuilder {
 	public async buildStats(messages: readonly ReviewMessage[], dryRun = false) {
 		await cards.initializeCardsDb();
 		const mysql = await getConnection();
-		const mysqlBgs = await getConnectionBgs();
-		await Promise.all(messages.map(msg => this.buildStat(msg.reviewId, mysql, mysqlBgs)));
+		await Promise.all(messages.map(msg => this.buildStat(msg.reviewId, mysql)));
 		await mysql.end();
-		await mysqlBgs.end();
 	}
 
-	private async buildStat(reviewId: string, mysql: ServerlessMysql, mysqlBgs: ServerlessMysql) {
+	private async buildStat(reviewId: string, mysql: ServerlessMysql) {
 		const review = await loadReview(reviewId, mysql);
 		console.log('processing', review);
 		if (!review.playerRank?.length || parseInt(review.playerRank) <= 4000) {
