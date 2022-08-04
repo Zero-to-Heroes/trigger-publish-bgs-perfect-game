@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import { parseBattlegroundsGame } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
@@ -16,7 +15,7 @@ export class StatsBuilder {
 	public async buildStats(messages: readonly ReviewMessage[], dryRun = false) {
 		await cards.initializeCardsDb();
 		const mysql = await getConnection();
-		await Promise.all(messages.map(msg => this.buildStat(msg.reviewId, mysql)));
+		await Promise.all(messages.filter(msg => !!msg.buildNumber).map(msg => this.buildStat(msg.reviewId, mysql)));
 		await mysql.end();
 	}
 
