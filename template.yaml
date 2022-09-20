@@ -42,7 +42,7 @@ Resources:
             Handler: process-publish-bgs-perfect-game.default
             Runtime: nodejs12.x
             CodeUri: ./dist/process-publish-bgs-perfect-game
-            MemorySize: 450
+            MemorySize: 700
             ReservedConcurrentExecutions: 1
             Policies:
                 - AWSLambdaVPCAccessExecutionRole
