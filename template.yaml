@@ -8,7 +8,7 @@ Resources:
     PublishBgsPerfectGameQueue:
         Type: AWS::SQS::Queue
         Properties:
-            QueueName: publish-perfect-game-queue
+            QueueName: perfect-game-queue
             VisibilityTimeout: 601
     PublishBgsPerfectGameSqsQueuePolicy:
         Type: AWS::SQS::QueuePolicy
@@ -17,7 +17,7 @@ Resources:
                 Version: '2012-10-17'
                 Id: PublishBgsPerfectGameQueuePolicy
                 Statement:
-                    - Sid: Allow-SNS-SendMessage
+                    - Sid: Allow-SNS-SendMessage-PublishBgsPerfectGameQueue
                       Effect: Allow
                       Principal:
                           AWS: '*'
@@ -29,7 +29,7 @@ Resources:
                               aws:SourceArn: arn:aws:sns:us-west-2:478062583808:bg-perfect-game
             Queues:
                 - !Ref PublishBgsPerfectGameQueue
-    SnsSubscription:
+    PublishBgsPerfectGameSubscription:
         Type: AWS::SNS::Subscription
         Properties:
             Protocol: SQS
