@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
+import { getConnection, S3 } from '@firestone-hs/aws-lambda-utils';
 import { AllCardsService } from '@firestone-hs/reference-data';
 import { ServerlessMysql } from 'serverless-mysql';
 import SqlString from 'sqlstring';
-import { getConnection } from './db/rds';
-import { S3 } from './db/s3';
 import { uuid } from './db/utils';
 import { ReviewMessage } from './review-message';
 import { validateReplay } from './validator';
@@ -15,7 +14,9 @@ export class StatsBuilder {
 	public async buildStats(messages: readonly ReviewMessage[], dryRun = false) {
 		await cards.initializeCardsDb();
 		const mysql = await getConnection();
-		await Promise.all(messages.filter(msg => !!msg.buildNumber).map(msg => this.buildStat(msg.reviewId, mysql)));
+		await Promise.all(
+			messages.filter((msg) => !!msg.buildNumber).map((msg) => this.buildStat(msg.reviewId, mysql)),
+		);
 		await mysql.end();
 	}
 
@@ -45,8 +46,9 @@ export class StatsBuilder {
 
 		// Save the new replay on S3
 		const today = new Date();
-		const replayKey = `hearthstone/replay/${today.getFullYear()}/${today.getMonth() +
-			1}/${today.getDate()}/${newReviewId}.xml.zip`;
+		const replayKey = `hearthstone/replay/${today.getFullYear()}/${
+			today.getMonth() + 1
+		}/${today.getDate()}/${newReviewId}.xml.zip`;
 		await s3.writeCompressedFile(anonimizedReplayString, 'xml.firestoneapp.com', replayKey);
 		const creationDate = toCreationDate(today);
 		const escape = SqlString.escape;
@@ -114,15 +116,12 @@ const nullIfEmpty = (value: string): string => {
 };
 
 const toCreationDate = (today: Date): string => {
-	return `${today
-		.toISOString()
-		.slice(0, 19)
-		.replace('T', ' ')}.${today.getMilliseconds()}`;
+	return `${today.toISOString().slice(0, 19).replace('T', ' ')}.${today.getMilliseconds()}`;
 };
 
 const loadReview = async (reviewId: string, mysql: ServerlessMysql) => {
-	return new Promise<any>(resolve => {
-		loadReviewInternal(reviewId, mysql, review => resolve(review), null);
+	return new Promise<any>((resolve) => {
+		loadReviewInternal(reviewId, mysql, (review) => resolve(review), null);
 	});
 };
 

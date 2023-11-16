@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
-import { inflate, deflate } from 'pako';
+import { S3, getConnectionReadOnly } from '@firestone-hs/aws-lambda-utils';
 import { BgsBoard } from '@firestone-hs/hs-replay-xml-parser/dist/public-api';
+import { inflate } from 'pako';
 import { gzipSync } from 'zlib';
-import { getConnection } from './db/rds';
-import { S3 } from './db/s3';
 
 const s3 = new S3();
 
@@ -11,7 +10,7 @@ const s3 = new S3();
 // the more traditional callback-style handler.
 // [1]: https://aws.amazon.com/blogs/compute/node-js-8-10-runtime-now-available-in-aws-lambda/
 export default async (event): Promise<any> => {
-	const mysql = await getConnection();
+	const mysql = await getConnectionReadOnly();
 
 	// const lastBattlegroundsPatch = await getLastBattlegroundsPatch();
 	// TODO: add grouping by period, maybe by MMR? Since there are many heroes, how to make sure
@@ -25,13 +24,15 @@ export default async (event): Promise<any> => {
 		LIMIT 1000;
 	`;
 	const dbResults: any[] = (await mysql.query(query)) ?? [];
-	const results = dbResults.map(result => ({
+	const results = dbResults.map((result) => ({
 		...result,
 		creationTimestamp: Date.parse(result.creationDate),
 		bgsAvailableTribes: result.bgsAvailableTribes
-			? result.bgsAvailableTribes.split(',').map(tribe => parseInt(tribe))
+			? result.bgsAvailableTribes.split(',').map((tribe) => parseInt(tribe))
 			: [],
-		bgsBannedTribes: result.bgsBannedTribes ? result.bgsBannedTribes.split(',').map(tribe => parseInt(tribe)) : [],
+		bgsBannedTribes: result.bgsBannedTribes
+			? result.bgsBannedTribes.split(',').map((tribe) => parseInt(tribe))
+			: [],
 		postMatchStats: {
 			boardHistory: result.finalComp ? [parseStats(result.finalComp)] : [],
 		},
