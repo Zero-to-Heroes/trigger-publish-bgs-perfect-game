@@ -24,19 +24,23 @@ export default async (event): Promise<any> => {
 		LIMIT 1000;
 	`;
 	const dbResults: any[] = (await mysql.query(query)) ?? [];
-	const results = dbResults.map((result) => ({
-		...result,
-		creationTimestamp: Date.parse(result.creationDate),
-		bgsAvailableTribes: result.bgsAvailableTribes
-			? result.bgsAvailableTribes.split(',').map((tribe) => parseInt(tribe))
-			: [],
-		bgsBannedTribes: result.bgsBannedTribes
-			? result.bgsBannedTribes.split(',').map((tribe) => parseInt(tribe))
-			: [],
-		postMatchStats: {
-			boardHistory: result.finalComp ? [parseStats(result.finalComp)] : [],
-		},
-	}));
+	const results = dbResults
+		.map((result) => ({
+			...result,
+			creationTimestamp: Date.parse(result.creationDate),
+			bgsAvailableTribes: result.bgsAvailableTribes
+				? result.bgsAvailableTribes.split(',').map((tribe) => parseInt(tribe))
+				: [],
+			bgsBannedTribes: result.bgsBannedTribes
+				? result.bgsBannedTribes.split(',').map((tribe) => parseInt(tribe))
+				: [],
+			bgsAnomalies: result.anomalies ? result.anomalies.split(',') : [],
+			postMatchStats: {
+				boardHistory: result.finalComp ? [parseStats(result.finalComp)] : [],
+			},
+		}))
+		.filter((r) => r.postMatchStats.boardHistory.length > 0 && r.postMatchStats.boardHistory[0].board?.length <= 7)
+		.filter((r) => r.bgsAnomalies?.length < 2);
 	const stringResults = JSON.stringify(results);
 	const gzippedResults = gzipSync(stringResults);
 	await s3.writeFile(

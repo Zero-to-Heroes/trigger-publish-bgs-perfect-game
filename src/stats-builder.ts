@@ -69,7 +69,8 @@ export class StatsBuilder {
 				bgsBannedTribes,
 				gameDurationSeconds,
 				gameDurationTurns,
-				finalComp
+				finalComp,
+				anomalies
 			)
 			VALUES
 			(
@@ -85,7 +86,8 @@ export class StatsBuilder {
 				${nullIfEmpty(review.bgsBannedTribes)},
 				${nullIfEmpty(escape(review.totalDurationSeconds))},
 				${nullIfEmpty(escape(review.totalDurationTurns))},
-				${nullIfEmpty(review.finalComp)}
+				${nullIfEmpty(review.finalComp)},
+				${nullIfEmpty(review.bgsAnomalies)}
 			)
 		`;
 		await mysql.query(query);

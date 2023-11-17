@@ -10,6 +10,7 @@ Resources:
         Properties:
             QueueName: perfect-game-queue
             VisibilityTimeout: 601
+            DelaySeconds: 300 # So that the final comps have time to be processed
     PublishBgsPerfectGameSqsQueuePolicy:
         Type: AWS::SQS::QueuePolicy
         Properties:
