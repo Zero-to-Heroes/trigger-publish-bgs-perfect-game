@@ -23,7 +23,7 @@ export class StatsBuilder {
 	private async buildStat(reviewId: string, mysql: ServerlessMysql) {
 		const review = await loadReview(reviewId, mysql);
 		console.log('processing', review);
-		if (!review.playerRank?.length || parseInt(review.playerRank) <= 4000) {
+		if (!review.playerRank?.length || parseInt(review.playerRank) <= 4000 || !review.allowGameShare) {
 			return;
 		}
 
@@ -53,7 +53,15 @@ export class StatsBuilder {
 		const creationDate = toCreationDate(today);
 		const escape = SqlString.escape;
 
-		// And we republish it
+		// And we copy the initial post-match stats to s3
+		await s3.copy(
+			'bgs-post-match-stats.firestoneapp.com',
+			`${review.reviewId}.gz.json`,
+			`bgs-post-match-stats.firestoneapp.com`,
+			`${newReviewId}.gz.json`,
+		);
+
+		// And we republish the review
 		const query = `
 			INSERT INTO bgs_perfect_game
 			(
@@ -91,6 +99,7 @@ export class StatsBuilder {
 			)
 		`;
 		await mysql.query(query);
+
 		return;
 	}
 
