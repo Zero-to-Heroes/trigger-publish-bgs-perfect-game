@@ -24,6 +24,7 @@ export default async (event): Promise<any> => {
 		LIMIT 1000;
 	`;
 	const dbResults: any[] = (await mysql.query(query)) ?? [];
+	await mysql.end();
 	const results = dbResults
 		.map((result) => ({
 			...result,
@@ -50,8 +51,6 @@ export default async (event): Promise<any> => {
 		'application/json',
 		'gzip',
 	);
-
-	await mysql.end();
 
 	return { statusCode: 200, body: null };
 };
